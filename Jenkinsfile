@@ -39,7 +39,21 @@ pipeline {
                 branch 'master'
             }
             steps {
-                echo 'Pass'
+                input 'Deploy to prod ?'
+                milestone(1)
+                withCredentials([usernamePassword(credentialsId: 'webserver_login', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
+                    script {
+                        sh "sshpass $USERPASS -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker pull erinyad/train-schedule:$env.BUILD_NUMBER\""
+                        try {
+                            sh "sshpass $USERPASS -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker stop train-schedule\""
+                            sh "sshpass $USERPASS -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker rm train-schedule\""
+                        } catch(err) {
+                            echo "Error: $err"
+                        }
+                        sh "sshpass $USERPASS -v ssh -o StrictHostKeyChecking=no $USERNAME@$prod_ip \"docker run -d --restart always --name train-schedule -p 8080:8080
+                            erinyad/train-schedule:${env.BUILD_NUMBER}\""
+                    }
+                }
             }
         }
     }
